@@ -11,23 +11,29 @@ $global:ProgressPreference = "SilentlyContinue"
 $global:OutputEncoding = New-Object Text.Utf8Encoding -ArgumentList (,$false) # BOM-less
 [Console]::OutputEncoding = $global:OutputEncoding
 
-$tagDelimitedList = "$CustomProperty.TagFilterList$"
+$tagDelimitedList = '$CustomProperty.TagFilterList$'
 
 # Check if 'op' is available in PATH
 if (-not (Get-Command "op" -ErrorAction SilentlyContinue)) {
     Write-Error "'op' (1Password CLI) is not found in your PATH. Please install it and ensure it is accessible."
     exit 1
 }
-
 function Run1PasswordCommand() {
     param (
         [string]$command
     )
 
+    $tagCommand = ""
+
     try {
-        # Execute the command and capture output
+        # Check if $tagDelimitedList is null or empty
+        if ($tagDelimitedList -ne '$'+'CustomProperty.TagFilterList'+'$' -and $tagDelimitedList -ne '' -and $command -like "item list*") {
+            $tagCommand = "--tags $($tagDelimitedList)"
+            $command = "$command $tagCommand"
+        }
         $args = $command -split ' '
-        $output = & op @args 2>&1
+        # Execute the command and capture output
+        $output = op @args 2>&1
         if ($LASTEXITCODE -ne 0) {
             Write-Error "Command 'op $command' failed. Error: $output"
             exit 2
@@ -39,6 +45,8 @@ function Run1PasswordCommand() {
         exit 99
     }
 }
+
+Run1PasswordCommand 'signin'
 
 # Create a hashtable representing your data
 $foldersForRoyal = [System.Collections.ArrayList]::new()
@@ -59,14 +67,20 @@ foreach ($account in $accounts) {
     $vaultObj.add("Name", $vault.name)
     $vaultObj.add("Type", 'Folder')
 
-    $credentialsJson = Run1PasswordCommand "item list --account $($account.account_uuid) --vault $($vault.id) --format json --tags $($tagDelimitedList)"
+    $credentialsJson = Run1PasswordCommand "item list --account $($account.account_uuid) --vault $($vault.id) --format json"
     $credentials = $credentialsJson | ConvertFrom-Json
     $credentialList = [System.Collections.ArrayList]::new()
     foreach($credential in $credentials) {
+      $credentialItemJson = Run1PasswordCommand "item get $($credential.id) --account $($account.account_uuid) --vault $($vault.id) --format json"
+      $credentialItem = $credentialItemJson | ConvertFrom-Json
+
       $credentialObj = @{}
       $credentialObj.add("Name", $credential.title)
-      $credentialObj.add("Type", 'DynamicCredential')
+      $credentialObj.add("Type", 'Credential')
       $credentialObj.add("ID", $credential.id)
+      $credentialObj.add("Username", ( $credentialItem.fields | Where-Object { $_.id -eq 'username' } | Select-Object -ExpandProperty value))
+      $credentialObj.add("Password", ( $credentialItem.fields | Where-Object { $_.id -eq 'password' } | Select-Object -ExpandProperty value))
+
       $credentialList.add($credentialObj) | Out-Null
     }
     $vaultObj.add("Objects", @($credentialList)) | Out-Null
