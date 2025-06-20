@@ -71,15 +71,25 @@ foreach ($account in $accounts) {
     $credentials = $credentialsJson | ConvertFrom-Json
     $credentialList = [System.Collections.ArrayList]::new()
     foreach($credential in $credentials) {
-      $credentialItemJson = Run1PasswordCommand "item get $($credential.id) --account $($account.account_uuid) --vault $($vault.id) --format json"
-      $credentialItem = $credentialItemJson | ConvertFrom-Json
-
       $credentialObj = @{}
       $credentialObj.add("Name", $credential.title)
-      $credentialObj.add("Type", 'Credential')
+      $credentialObj.add("Type", 'DynamicCredential')
       $credentialObj.add("ID", $credential.id)
-      $credentialObj.add("Username", ( $credentialItem.fields | Where-Object { $_.id -eq 'username' } | Select-Object -ExpandProperty value))
-      $credentialObj.add("Password", ( $credentialItem.fields | Where-Object { $_.id -eq 'password' } | Select-Object -ExpandProperty value))
+
+
+      $credentialObjCustomProperties = [System.Collections.ArrayList]::new()
+      $credentialObjCustomProperty = @{}
+      $credentialObjCustomProperty.add("Name","VaultId")
+      $credentialObjCustomProperty.add("Value",$vault.id)
+      $credentialObjCustomProperty.add("Type","Protected")
+      $credentialObjCustomProperties.add($credentialObjCustomProperty) | Out-Null
+      $credentialObjCustomProperty = @{}
+      $credentialObjCustomProperty.add("Name","AccountUUID")
+      $credentialObjCustomProperty.add("Value",$account.account_uuid)
+      $credentialObjCustomProperty.add("Type","Protected")
+      $credentialObjCustomProperties.add($credentialObjCustomProperty) | Out-Null
+
+      $credentialObj.add("CustomProperties", @($credentialObjCustomProperties)) | Out-Null
 
       $credentialList.add($credentialObj) | Out-Null
     }
