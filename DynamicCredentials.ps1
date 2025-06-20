@@ -43,8 +43,14 @@ function Run1PasswordCommand() {
         return $output
     }
     catch {
-        Write-Error "An unexpected error occurred while executing 'op $command': $($_.Exception.Message)"
-        exit 99
+      $errorMsg = $_.Exception.Message
+      if ($errorMsg -match "Could not connect to the 1Password desktop app") {
+          Write-Error "Could not connect to the 1Password desktop app. Please ensure it is installed, running, and that CLI integration is enabled."
+          exit 3
+      } else {
+          Write-Error "An unexpected error occurred while executing 'op $command': $errorMsg"
+          exit 99
+      }
     }
 }
 
