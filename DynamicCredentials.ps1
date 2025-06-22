@@ -59,7 +59,13 @@ $credJson = Run1PasswordCommand "item get $($credentialID) --format json --accou
 $cred = $credJson | ConvertFrom-Json
 
 $credObj = @{}
-$credObj.add("Username", ( $cred.fields | Where-Object { $_.id -eq 'username' } | Select-Object -ExpandProperty value))
-$credObj.add("Password", ( $cred.fields | Where-Object { $_.id -eq 'password' } | Select-Object -ExpandProperty value))
-
+if ($cred.category -eq "SSH_KEY")
+{
+  $credObj.add("Username", ( $cred.fields | Where-Object { $_.label -eq 'username' } | Select-Object -ExpandProperty value))
+  $credObj.add("Password", ( $cred.fields | Where-Object { $_.label -eq 'password' } | Select-Object -ExpandProperty value))
+}
+else {
+  $credObj.add("Username", ( $cred.fields | Where-Object { $_.id -eq 'username' } | Select-Object -ExpandProperty value))
+  $credObj.add("Password", ( $cred.fields | Where-Object { $_.id -eq 'password' } | Select-Object -ExpandProperty value))
+}
 $credObj | ConvertTo-Json -Depth 100
